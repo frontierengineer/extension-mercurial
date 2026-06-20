@@ -1,0 +1,5 @@
+{
+  "displayName": "Mercurial",
+  "defaultColor": "#999999",
+  "description": "Mercurial support: a workspace provider that runs each reservation in place (committing on release), plus a source-control panel showing a slot's changes, diffs, and log."
+}
