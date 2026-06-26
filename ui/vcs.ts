@@ -67,6 +67,33 @@ function parseLog(stdout: string): LogCommit[] {
 
 const NO_DIR: ActionResult = { ok: false, code: 'no_dir', error: 'This slot has no directory' };
 const NOT_A_REPO: ActionResult = { ok: false, code: 'not_a_repo', error: 'Not a Mercurial repository' };
+const NO_HG: ActionResult = { ok: false, code: 'no_hg', error: 'Mercurial (hg) is not installed on this machine' };
+
+// `hg root` couldn't even LAUNCH the binary (vs. ran and reported a non-zero
+// exit). The host's MachineRegistry.exec sets `error` (and leaves `exitCode`
+// undefined) only on a transport/launch failure — a "command not found"
+// (ENOENT) is the common case when hg isn't installed on the slot's machine,
+// which the panel must NOT mislabel as "not a repository". A normal non-zero
+// exit (a real non-repo: "abort: no repository found") carries an exitCode and
+// stderr instead, so it falls through to not_a_repo.
+function isLaunchFailure(res: ExecResult): boolean {
+  return res.exitCode == null && /\bENOENT\b|not found|no such file|spawn|cannot run|executable/i.test(res.error || '');
+}
+
+// hg's real diagnostic from a failed exec, or '' when the failure carries no
+// message of its own. hg writes diagnostics to stderr; the host surfaces a
+// failed process's stderr as `error` (its normalised stderr field comes back
+// empty), and when stderr was empty too it fills `error` with the generic
+// "Command failed: <cmd>" wrapper. That wrapper means "exited non-zero, said
+// nothing" — NOT a real error to show — so it's filtered out. (A process's
+// stdout is dropped entirely on a non-zero exit, so it can't be relied on.)
+function hgDiagnostic(res: ExecResult): string {
+  const stderr = (res.stderr || '').trim();
+  if (stderr) return stderr;
+  const err = (res.error || '').trim();
+  if (!err || /^command failed:/i.test(err)) return '';
+  return err;
+}
 
 export function createVcsClient(machines: MachineRegistry, machine: string, slotDir: string): VcsClient {
   const run = (args: string[], cwd: string) => machines.exec(machine, { command: 'hg', args, cwd });
@@ -81,7 +108,9 @@ export function createVcsClient(machines: MachineRegistry, machine: string, slot
     if (!directory) return NO_DIR as { ok: false; error: string; code?: string };
     const hg = (args: string[]) => run(args, directory);
     const root = await hg(['root']);
-    if (!root.ok) return NOT_A_REPO as { ok: false; error: string; code?: string };
+    if (!root.ok) {
+      return (isLaunchFailure(root) ? NO_HG : NOT_A_REPO) as { ok: false; error: string; code?: string };
+    }
     return { ok: true, hg, directory };
   };
 
@@ -91,7 +120,7 @@ export function createVcsClient(machines: MachineRegistry, machine: string, slot
       if (!repo.ok) return repo as StatusResult;
       const branch = await repo.hg(['branch']);
       const status = await repo.hg(['status']);
-      if (!status.ok) return { ok: false, error: (status.stderr || status.error || '').trim() };
+      if (!status.ok) return { ok: false, error: hgDiagnostic(status) || 'could not read status' };
       const files = parseStatus(status.stdout);
       return {
         ok: true,
@@ -108,7 +137,7 @@ export function createVcsClient(machines: MachineRegistry, machine: string, slot
       if (!repo.ok) return repo as LogResult;
       const n = Math.max(1, Math.min(200, limit ?? 30));
       const res = await repo.hg(['log', '-l', String(n), '--template', LOG_TEMPLATE]);
-      if (!res.ok) return { ok: false, error: (res.stderr || res.error || '').trim() };
+      if (!res.ok) return { ok: false, error: hgDiagnostic(res) || 'could not read log' };
       return { ok: true, commits: parseLog(res.stdout) };
     },
 
@@ -163,7 +192,11 @@ export function createVcsClient(machines: MachineRegistry, machine: string, slot
       args.push('-m', msg);
       const res = await repo.hg(args);
       if (!res.ok) {
-        return { ok: false, error: (res.stderr || res.stdout || res.error || '').trim() || 'commit failed' };
+        // "nothing changed" exits non-zero with that line on the host-dropped
+        // stdout (empty stderr) → hgDiagnostic() is '' → report it plainly
+        // rather than leaking the generic "Command failed: hg commit -m …".
+        const diag = hgDiagnostic(res);
+        return { ok: false, error: diag || 'Nothing to commit.' };
       }
       return { ok: true };
     },
@@ -176,22 +209,25 @@ export function createVcsClient(machines: MachineRegistry, machine: string, slot
       const repo = await withRepo();
       if (!repo.ok) return repo;
       const res = await repo.hg(['revert', '--no-backup', file]);
-      if (!res.ok) return { ok: false, error: (res.stderr || res.error || '').trim() };
+      if (!res.ok) return { ok: false, error: hgDiagnostic(res) || 'revert failed' };
       return { ok: true };
     },
 
-    // Push to the default path (`hg push`). hg exits 1 with "no changes
-    // found" when there's nothing to push — that's success for us, not an
-    // error. Other failures (no default path, auth, offline, new remote
-    // head) surface hg's message.
+    // Push to the default path (`hg push`). hg exits 1 with "no changes found"
+    // when there's nothing to push — that's success for us, not an error. The
+    // host drops a failed process's STDOUT (where that message goes), so it
+    // can't be matched directly; instead a non-zero exit with no real
+    // diagnostic (hgDiagnostic() === '') IS the nothing-to-push case. A genuine
+    // failure (no default path, auth, offline, new remote head) writes to
+    // stderr → hgDiagnostic() surfaces hg's own message.
     async push() {
       const repo = await withRepo();
       if (!repo.ok) return repo;
       const res = await repo.hg(['push']);
       if (!res.ok) {
-        const out = (res.stderr || '') + (res.stdout || '');
-        if (/no changes found/i.test(out)) return { ok: true, message: 'No changes to push.' };
-        return { ok: false, error: out.trim() || (res.error || '').trim() || 'push failed' };
+        const diag = hgDiagnostic(res);
+        if (!diag || /no changes found/i.test(diag)) return { ok: true, message: 'No changes to push.' };
+        return { ok: false, error: diag };
       }
       const summary = (res.stdout || '').trim().split('\n').pop() || 'Pushed.';
       return { ok: true, message: summary };

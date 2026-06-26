@@ -96,9 +96,17 @@ export function VcsPanel({ host }: { host: ExtensionHost }) {
   }, [groups, selected]);
 
   const selectedSlot = selected ? (slotByKey.get(selected) ?? null) : null;
+  // Key the client on the slot's STABLE primitives (machine + dir), not the
+  // SlotTarget object — every refresh() rebuilds slotByKey with fresh objects,
+  // so memoising on `selectedSlot` would recreate the client (and remount
+  // RepoView's state — clearing the open diff AND any half-typed commit
+  // message) on each background poll. machine+slotDir is what the client
+  // actually binds to; while those hold steady the client stays identical.
+  const selMachine = selectedSlot?.machine ?? '';
+  const selDir = selectedSlot?.slotDir ?? '';
   const client = useMemo<VcsClient | null>(
-    () => (selectedSlot ? createVcsClient(machines, selectedSlot.machine, selectedSlot.slotDir) : null),
-    [machines, selectedSlot],
+    () => (selMachine && selDir ? createVcsClient(machines, selMachine, selDir) : null),
+    [machines, selMachine, selDir],
   );
 
   // The slot selector — the app's own nav rail (ExtensionSidebar), grouped by

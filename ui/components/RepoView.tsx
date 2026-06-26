@@ -214,15 +214,24 @@ export function RepoView({
   // and a directory that isn't this VCS's repo (`not_a_repo`). The slot's
   // directory is shown as a sub-line.
   const failCode = status && !status.ok ? status.code : null;
-  if (failCode === 'no_dir' || failCode === 'not_a_repo') {
+  if (failCode === 'no_dir' || failCode === 'not_a_repo' || failCode === 'no_hg') {
+    // `no_hg` (hg couldn't be launched — usually not installed) is kept
+    // distinct from `not_a_repo` (hg ran, the directory isn't a repo): a
+    // valid hg repo on a machine without hg must not read as "not a
+    // repository". The hg case adds an install hint as the sub-line.
     const headline = failCode === 'no_dir'
       ? 'This slot has no directory'
-      : (vcs === 'git' ? 'Not a git repository' : 'Not a Mercurial repository');
+      : failCode === 'no_hg'
+        ? 'Mercurial (hg) isn’t available on this machine'
+        : (vcs === 'git' ? 'Not a git repository' : 'Not a Mercurial repository');
+    const sub = failCode === 'no_hg'
+      ? `Install Mercurial on this machine (e.g. “apt install mercurial”) so it can read ${slot.slotDir}`
+      : slot.slotDir;
     return (
       <div className="ext-vcs-repo">
         <div className="ext-vcs-empty">
           <p>{headline}</p>
-          <p className="ext-vcs-empty-sub">{slot.slotDir}</p>
+          <p className="ext-vcs-empty-sub">{sub}</p>
           <button className="btn-ghost btn-sm" onClick={load}>Retry</button>
         </div>
       </div>
