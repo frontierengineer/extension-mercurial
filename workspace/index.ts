@@ -1,7 +1,7 @@
 import type {
   WorkspaceProviderProvider,
   WorkspaceProvider,
-  MachineRegistry,
+  WorkerRegistry,
   Workspace,
 } from '../../types';
 
@@ -21,7 +21,7 @@ function dir(workspace: Workspace): string {
 // we never inject credentials, only recognise the shape of an auth failure.
 const AUTH_FAIL = /authentication|could not read username|permission denied|access denied|terminal prompts disabled|authorization failed|403|fatal: could not read/i;
 
-function createMercurialProvider(machines: MachineRegistry): WorkspaceProvider {
+function createMercurialProvider(machines: WorkerRegistry): WorkspaceProvider {
   return {
     id: 'mercurial',
     slots: { default: 2, unbounded: true, note: 'Mercurial v1 runs in place — concurrent slots share the working directory, so keep this low.' },
@@ -62,5 +62,5 @@ function createMercurialProvider(machines: MachineRegistry): WorkspaceProvider {
 
 export function register(workspaceProvider: WorkspaceProviderProvider): void {
   const wp = workspaceProvider.version(1);
-  wp.register(createMercurialProvider(wp.services.machines));
+  wp.register(createMercurialProvider(wp.services.workers));
 }

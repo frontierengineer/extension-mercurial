@@ -1,4 +1,4 @@
-import type { MachineRegistry, ExecResult } from '../../types';
+import type { WorkerRegistry, ExecResult } from '../../types';
 import type {
   StatusFile, LogCommit,
   StatusResult, LogResult, DiffResult, FileDiffResult, ActionResult,
@@ -6,7 +6,7 @@ import type {
 import { LOG_TEMPLATE, inferLanguage } from './constants';
 
 // The repository client the source-control view drives. Each call runs the
-// hg binary in the slot's directory via MachineRegistry.exec and parses
+// hg binary in the slot's directory via WorkerRegistry.exec and parses
 // the output. Every method is robust to non-repos / errors: it resolves to
 // { ok:false, ... } (the failures carry a stable `code` — `no_dir`,
 // `not_a_repo`) rather than throwing, so a bad call can't wedge the view.
@@ -70,7 +70,7 @@ const NOT_A_REPO: ActionResult = { ok: false, code: 'not_a_repo', error: 'Not a 
 const NO_HG: ActionResult = { ok: false, code: 'no_hg', error: 'Mercurial (hg) is not installed on this machine' };
 
 // `hg root` couldn't even LAUNCH the binary (vs. ran and reported a non-zero
-// exit). The host's MachineRegistry.exec sets `error` (and leaves `exitCode`
+// exit). The host's WorkerRegistry.exec sets `error` (and leaves `exitCode`
 // undefined) only on a transport/launch failure — a "command not found"
 // (ENOENT) is the common case when hg isn't installed on the slot's machine,
 // which the panel must NOT mislabel as "not a repository". A normal non-zero
@@ -95,7 +95,7 @@ function hgDiagnostic(res: ExecResult): string {
   return err;
 }
 
-export function createVcsClient(machines: MachineRegistry, machine: string, slotDir: string): VcsClient {
+export function createVcsClient(machines: WorkerRegistry, machine: string, slotDir: string): VcsClient {
   const run = (args: string[], cwd: string) => machines.exec(machine, { command: 'hg', args, cwd });
 
   // Confirm the slot's directory is a repo (`hg root`), then hand back a
