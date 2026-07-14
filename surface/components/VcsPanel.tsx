@@ -58,7 +58,7 @@ export function VcsPanel({ host }: { host: ExtensionHost }) {
     void refresh();
     const stopWatch = machines.watch(() => void refresh());
     const stopActivate = host.lifecycle.onActivate(() => void refresh());
-    return () => { stopWatch(); stopActivate(); };
+    return () => { stopWatch.unsubscribe(); stopActivate.unsubscribe(); };
   }, [refresh, machines, host]);
 
   const groups = useMemo(() => {
@@ -77,7 +77,7 @@ export function VcsPanel({ host }: { host: ExtensionHost }) {
         g = { workspaceId: r.workspaceId, title: w.title, slots: [] };
         byWorkspace.set(r.workspaceId, g);
       }
-      g.slots.push({ reservationId: r.id, machine: r.machine, slotDir: dir, label: r.name });
+      g.slots.push({ reservationId: r.id, machine: r.machine, slotDir: dir, label: r.description });
     }
     return Array.from(byWorkspace.values()).sort((a, b) => a.title.localeCompare(b.title));
   }, [reservations, workspaces]);
