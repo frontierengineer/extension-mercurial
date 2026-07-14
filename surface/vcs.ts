@@ -1,4 +1,4 @@
-import type { WorkerRegistry, ExecResult } from '../../types';
+import type { WorkerRegistry, ExecuteResult } from '../../types';
 import type {
   StatusFile, LogCommit,
   StatusResult, LogResult, DiffResult, FileDiffResult, ActionResult,
@@ -6,7 +6,7 @@ import type {
 import { LOG_TEMPLATE, inferLanguage } from './constants';
 
 // The repository client the source-control view drives. Each call runs the
-// hg binary in the slot's directory via WorkerRegistry.exec and parses
+// hg binary in the slot's directory via WorkerRegistry.execute and parses
 // the output. Every method is robust to non-repos / errors: it resolves to
 // { ok:false, ... } (the failures carry a stable `code` — `no_dir`,
 // `not_a_repo`) rather than throwing, so a bad call can't wedge the view.
@@ -70,13 +70,13 @@ const NOT_A_REPO: ActionResult = { ok: false, code: 'not_a_repo', error: 'Not a 
 const NO_HG: ActionResult = { ok: false, code: 'no_hg', error: 'Mercurial (hg) is not installed on this machine' };
 
 // `hg root` couldn't even LAUNCH the binary (vs. ran and reported a non-zero
-// exit). The host's WorkerRegistry.exec sets `error` (and leaves `exitCode`
+// exit). The host's WorkerRegistry.execute sets `error` (and leaves `exitCode`
 // undefined) only on a transport/launch failure — a "command not found"
 // (ENOENT) is the common case when hg isn't installed on the slot's machine,
 // which the panel must NOT mislabel as "not a repository". A normal non-zero
 // exit (a real non-repo: "abort: no repository found") carries an exitCode and
 // stderr instead, so it falls through to not_a_repo.
-function isLaunchFailure(res: ExecResult): boolean {
+function isLaunchFailure(res: ExecuteResult): boolean {
   return res.exitCode == null && /\bENOENT\b|not found|no such file|spawn|cannot run|executable/i.test(res.error || '');
 }
 
@@ -87,7 +87,7 @@ function isLaunchFailure(res: ExecResult): boolean {
 // "Command failed: <cmd>" wrapper. That wrapper means "exited non-zero, said
 // nothing" — NOT a real error to show — so it's filtered out. (A process's
 // stdout is dropped entirely on a non-zero exit, so it can't be relied on.)
-function hgDiagnostic(res: ExecResult): string {
+function hgDiagnostic(res: ExecuteResult): string {
   const stderr = (res.stderr || '').trim();
   if (stderr) return stderr;
   const err = (res.error || '').trim();
@@ -96,12 +96,12 @@ function hgDiagnostic(res: ExecResult): string {
 }
 
 export function createVcsClient(machines: WorkerRegistry, machine: string, slotDir: string): VcsClient {
-  const run = (args: string[], cwd: string) => machines.exec(machine, { command: 'hg', args, cwd });
+  const run = (args: string[], cwd: string) => machines.execute({ machine, command: 'hg', args, cwd, environment: null, timeoutMs: null });
 
   // Confirm the slot's directory is a repo (`hg root`), then hand back a
   // bound runner. Returns a discriminated result so callers stay flat.
   const withRepo = async (): Promise<
-    { ok: true; hg: (args: string[]) => Promise<ExecResult>; directory: string }
+    { ok: true; hg: (args: string[]) => Promise<ExecuteResult>; directory: string }
     | { ok: false; error: string; code?: string }
   > => {
     const directory = slotDir;
@@ -167,7 +167,7 @@ export function createVcsClient(machines: WorkerRegistry, machine: string, slotD
       if (!repo.ok) return repo as FileDiffResult;
       const parent = await repo.hg(['cat', '-r', '.', file]);
       const original = parent.ok ? parent.stdout : '';
-      const work = await machines.exec(machine, { command: 'cat', args: ['--', file], cwd: repo.directory });
+      const work = await machines.execute({ machine, command: 'cat', args: ['--', file], cwd: repo.directory, environment: null, timeoutMs: null });
       const modified = work.ok ? work.stdout : '';
       return { ok: true, file, original, modified, language: inferLanguage(file) };
     },

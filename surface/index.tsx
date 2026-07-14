@@ -23,13 +23,14 @@ export function register(uiProvider: SurfaceProvider): void {
     title: 'Mercurial',
     icon: HG_ICON,
     color: '#999999',
+    requires: null,
     // The app owns host.container entirely. mount() runs ONCE (the host warms
     // this app's webview once, then only toggles visibility); the returned
-    // teardown runs if the user quits the app from the launcher.
+    // handle's dispose() runs if the user quits the app from the launcher.
     mount(host: ExtensionHost) {
       const root = createRoot(host.container);
       root.render(<VcsPanel host={host} />);
-      return () => root.unmount();
+      return { dispose: () => root.unmount() };
     },
   });
 }
