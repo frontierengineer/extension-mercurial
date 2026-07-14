@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import type { UiProvider, ExtensionHost } from '../../types';
+import type { SurfaceProvider, ExtensionHost } from '../../types';
 import { VcsPanel } from './components/VcsPanel';
 import './styles.css';
 
@@ -15,7 +15,7 @@ import './styles.css';
 const HG_ICON =
   'M8 2.5v8M8 13a1.4 1.4 0 1 0 0.01 0M4.6 6a1.4 1.4 0 1 0 0.01 0M11.4 6a1.4 1.4 0 1 0 0.01 0M4.7 6.6C5.1 9 6.1 10 8 10.5M11.3 6.6C10.9 9 9.9 10 8 10.5';
 
-export function register(uiProvider: UiProvider): void {
+export function register(uiProvider: SurfaceProvider): void {
   const ui = uiProvider.version(1);
 
   ui.application.register({

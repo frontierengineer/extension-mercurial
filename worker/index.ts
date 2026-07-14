@@ -1,7 +1,7 @@
 import type {
-  WorkspaceProviderProvider,
+  WorkerProvider,
+  WorkerV1,
   WorkspaceProvider,
-  WorkerRegistry,
   Workspace,
 } from '../../types';
 
@@ -21,7 +21,7 @@ function dir(workspace: Workspace): string {
 // we never inject credentials, only recognise the shape of an auth failure.
 const AUTH_FAIL = /authentication|could not read username|permission denied|access denied|terminal prompts disabled|authorization failed|403|fatal: could not read/i;
 
-function createMercurialProvider(machines: WorkerRegistry): WorkspaceProvider {
+function createMercurialProvider(services: WorkerV1['services']): WorkspaceProvider {
   return {
     id: 'mercurial',
     slots: { default: 2, unbounded: true, note: 'Mercurial v1 runs in place — concurrent slots share the working directory, so keep this low.' },
@@ -31,7 +31,9 @@ function createMercurialProvider(machines: WorkerRegistry): WorkspaceProvider {
     },
     async end(ctx) {
       if (ctx.keepDirty) return;
-      const hg = (args: string[]) => machines.exec(ctx.workspace.machine, { command: 'hg', args, cwd: dir(ctx.workspace) });
+      // The provider runs on the workspace's own worker daemon, so it reaches hg
+      // through the daemon-local exec — no machine to thread.
+      const hg = (args: string[]) => services.exec({ command: 'hg', args, cwd: dir(ctx.workspace) });
       const st = await hg(['status']);
       if (st.ok && st.stdout.trim()) {
         await hg(['commit', '-A', '-m', 'Frontier: reservation closed (uncommitted work auto-saved)']);
@@ -42,7 +44,7 @@ function createMercurialProvider(machines: WorkerRegistry): WorkspaceProvider {
     // confirmed it exists; we only answer "is it hg?". The hg knowledge lives
     // here, not in core.
     async checkDirectory(ctx) {
-      const r = await machines.exec(ctx.machine, { command: 'hg', args: ['-R', ctx.directory, 'root'] });
+      const r = await services.exec({ command: 'hg', args: ['-R', ctx.directory, 'root'] });
       return { repo: r.ok, kind: r.ok ? 'hg' : undefined };
     },
 
@@ -52,7 +54,7 @@ function createMercurialProvider(machines: WorkerRegistry): WorkspaceProvider {
     async checkAuth(ctx) {
       const directory = dir(ctx.workspace);
       if (!directory) return { ok: true };
-      const r = await machines.exec(ctx.workspace.machine, { command: 'hg', args: ['-R', directory, 'identify', 'default'], timeoutMs: 30_000 });
+      const r = await services.exec({ command: 'hg', args: ['-R', directory, 'identify', 'default'], timeoutMs: 30_000 });
       if (r.ok) return { ok: true };
       const msg = `${r.stderr || r.error || ''}`.trim();
       return { ok: false, needsAuth: AUTH_FAIL.test(msg), detail: msg.split('\n')[0]?.slice(0, 200) };
@@ -60,7 +62,7 @@ function createMercurialProvider(machines: WorkerRegistry): WorkspaceProvider {
   };
 }
 
-export function register(workspaceProvider: WorkspaceProviderProvider): void {
-  const wp = workspaceProvider.version(1);
-  wp.register(createMercurialProvider(wp.services.workers));
+export function register(provider: WorkerProvider): void {
+  const w = provider.version(1);
+  w.workspace.register(createMercurialProvider(w.services));
 }
