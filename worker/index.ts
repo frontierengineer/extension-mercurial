@@ -1,6 +1,6 @@
 import type {
   WorkerProvider,
-  WorkerV1,
+  WorkerDaemonHost,
   WorkspaceProvider,
   Workspace,
 } from '../../types';
@@ -21,7 +21,7 @@ function dir(workspace: Workspace): string {
 // we never inject credentials, only recognise the shape of an auth failure.
 const AUTH_FAIL = /authentication|could not read username|permission denied|access denied|terminal prompts disabled|authorization failed|403|fatal: could not read/i;
 
-function createMercurialProvider(services: WorkerV1['services']): WorkspaceProvider {
+function createMercurialProvider(host: WorkerDaemonHost): WorkspaceProvider {
   return {
     id: 'mercurial',
     // begin() runs in place on the canonical directory with no checkout, so there
@@ -37,7 +37,7 @@ function createMercurialProvider(services: WorkerV1['services']): WorkspaceProvi
       if (context.keepDirty) return;
       // The provider runs on the workspace's own worker daemon, so it reaches hg
       // through the daemon-local exec — no machine to thread.
-      const hg = (args: string[]) => services.execute({ command: 'hg', args, cwd: dir(context.workspace), environment: null, timeoutMs: null });
+      const hg = (args: string[]) => host.execute({ command: 'hg', args, cwd: dir(context.workspace), environment: null, timeoutMs: null });
       const st = await hg(['status']);
       if (st.ok && st.stdout.trim()) {
         await hg(['commit', '-A', '-m', 'Frontier: reservation closed (uncommitted work auto-saved)']);
@@ -48,7 +48,7 @@ function createMercurialProvider(services: WorkerV1['services']): WorkspaceProvi
     // confirmed it exists; we only answer "is it hg?". The hg knowledge lives
     // here, not in core.
     async checkDirectory(context) {
-      const r = await services.execute({ command: 'hg', args: ['-R', context.directory, 'root'], cwd: null, environment: null, timeoutMs: null });
+      const r = await host.execute({ command: 'hg', args: ['-R', context.directory, 'root'], cwd: null, environment: null, timeoutMs: null });
       return { repo: r.ok, kind: r.ok ? 'hg' : undefined };
     },
 
@@ -58,7 +58,7 @@ function createMercurialProvider(services: WorkerV1['services']): WorkspaceProvi
     async checkAuth(context) {
       const directory = dir(context.workspace);
       if (!directory) return { ok: true };
-      const r = await services.execute({ command: 'hg', args: ['-R', directory, 'identify', 'default'], cwd: null, environment: null, timeoutMs: 30_000 });
+      const r = await host.execute({ command: 'hg', args: ['-R', directory, 'identify', 'default'], cwd: null, environment: null, timeoutMs: 30_000 });
       if (r.ok) return { ok: true };
       const msg = `${r.stderr || r.error || ''}`.trim();
       return { ok: false, needsAuth: AUTH_FAIL.test(msg), detail: msg.split('\n')[0]?.slice(0, 200) };
@@ -68,5 +68,13 @@ function createMercurialProvider(services: WorkerV1['services']): WorkspaceProvi
 
 export function register(provider: WorkerProvider): void {
   const w = provider.version(1);
-  w.workspace.register(createMercurialProvider(w.services));
+  // The worker bundle is a single daemon: its mount receives the flat
+  // WorkerDaemonHost and registers this extension's mercurial workspace provider.
+  w.daemon.register({
+    mount(host) {
+      host.workspace.register(createMercurialProvider(host));
+      // Nothing to tear down: the provider deregisters with the daemon.
+      return {};
+    },
+  });
 }

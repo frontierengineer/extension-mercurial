@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ExtensionSidebar, Split, EmptyState } from '@frontierengineer/ui';
-import type { ExtensionHost, Reservation, Workspace } from '../../../types';
+import type { ViewHost, Reservation, Workspace } from '../../../types';
 import { RepoView } from './RepoView';
 import { createVcsClient, type VcsClient } from '../vcs';
 
@@ -32,7 +32,7 @@ interface WorkspaceGroup {
   slots: SlotTarget[];
 }
 
-export function VcsPanel({ host }: { host: ExtensionHost }) {
+export function VcsPanel({ host }: { host: ViewHost }) {
   const machines = host.workers;
   const workspacesService = host.workspaces;
   const [reservations, setReservations] = useState<Reservation[]>([]);

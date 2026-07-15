@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import type { SurfaceProvider, ExtensionHost } from '../../types';
+import type { SurfaceProvider, ViewHost } from '../../types';
 import { VcsPanel } from './components/VcsPanel';
 import './styles.css';
 
@@ -27,7 +27,7 @@ export function register(uiProvider: SurfaceProvider): void {
     // The app owns host.container entirely. mount() runs ONCE (the host warms
     // this app's webview once, then only toggles visibility); the returned
     // handle's dispose() runs if the user quits the app from the launcher.
-    mount(host: ExtensionHost) {
+    mount(host: ViewHost) {
       const root = createRoot(host.container);
       root.render(<VcsPanel host={host} />);
       return { dispose: () => root.unmount() };
