@@ -33,8 +33,8 @@ interface WorkspaceGroup {
 }
 
 export function VcsPanel({ host }: { host: ExtensionHost }) {
-  const machines = host.services.workers;
-  const workspacesService = host.services.workspaces;
+  const machines = host.workers;
+  const workspacesService = host.workspaces;
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
