@@ -1,5 +1,5 @@
 // The Mercurial app body — the source-control surface housed inside the app's
-// own content rect (host.container). It is the same source-control shape as the
+// own content rect (context.container). It is the same source-control shape as the
 // git app, for Mercurial.
 //
 // VCS inspection happens THROUGH A SLOT (docs/core/server/workspaces.md §6): the selector
@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ExtensionSidebar, Split, EmptyState } from '@frontierengineer/ui';
-import type { ViewHost, Reservation, Workspace } from '../../../types';
+import type { SurfaceViewContext, Reservation, Workspace } from '../../../types';
 import { RepoView } from './RepoView';
 import { createVcsClient, type VcsClient } from '../vcs';
 
@@ -32,9 +32,9 @@ interface WorkspaceGroup {
   slots: SlotTarget[];
 }
 
-export function VcsPanel({ host }: { host: ViewHost }) {
-  const machines = host.workers;
-  const workspacesService = host.workspaces;
+export function VcsPanel({ context }: { context: SurfaceViewContext }) {
+  const machines = context.workers;
+  const workspacesService = context.workspaces;
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -57,9 +57,9 @@ export function VcsPanel({ host }: { host: ViewHost }) {
   useEffect(() => {
     void refresh();
     const stopWatch = machines.watch(() => void refresh());
-    const stopActivate = host.lifecycle.onActivate(() => void refresh());
+    const stopActivate = context.lifecycle.onActivate(() => void refresh());
     return () => { stopWatch.unsubscribe(); stopActivate.unsubscribe(); };
-  }, [refresh, machines, host]);
+  }, [refresh, machines, context]);
 
   const groups = useMemo(() => {
     const relevant = new Set(['mercurial']);

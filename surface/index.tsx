@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import type { SurfaceProvider, ViewHost } from '../../types';
+import type { SurfaceProvider, SurfaceViewContext } from '../../types';
 import { VcsPanel } from './components/VcsPanel';
 import './styles.css';
 
@@ -24,12 +24,12 @@ export function register(uiProvider: SurfaceProvider): void {
     icon: HG_ICON,
     color: '#999999',
     requires: null,
-    // The app owns host.container entirely. mount() runs ONCE (the host warms
+    // The app owns context.container entirely. mount() runs ONCE (the host warms
     // this app's webview once, then only toggles visibility); the returned
     // handle's dispose() runs if the user quits the app from the launcher.
-    mount(host: ViewHost) {
-      const root = createRoot(host.container);
-      root.render(<VcsPanel host={host} />);
+    mount(context: SurfaceViewContext) {
+      const root = createRoot(context.container);
+      root.render(<VcsPanel context={context} />);
       return { dispose: () => root.unmount() };
     },
   });
