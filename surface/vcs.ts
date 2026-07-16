@@ -96,7 +96,7 @@ function hgDiagnostic(res: ExecuteResult): string {
 }
 
 export function createVcsClient(machines: WorkerRegistry, machine: string, slotDir: string): VcsClient {
-  const run = (args: string[], cwd: string) => machines.execute({ machine, command: 'hg', args, cwd, environment: null, timeoutMs: null });
+  const run = (args: string[], cwd: string) => machines.execute(machine, { command: 'hg', args, cwd, environment: {}, timeoutMs: null });
 
   // Confirm the slot's directory is a repo (`hg root`), then hand back a
   // bound runner. Returns a discriminated result so callers stay flat.
@@ -167,7 +167,7 @@ export function createVcsClient(machines: WorkerRegistry, machine: string, slotD
       if (!repo.ok) return repo as FileDiffResult;
       const parent = await repo.hg(['cat', '-r', '.', file]);
       const original = parent.ok ? parent.stdout : '';
-      const work = await machines.execute({ machine, command: 'cat', args: ['--', file], cwd: repo.directory, environment: null, timeoutMs: null });
+      const work = await machines.execute(machine, { command: 'cat', args: ['--', file], cwd: repo.directory, environment: {}, timeoutMs: null });
       const modified = work.ok ? work.stdout : '';
       return { ok: true, file, original, modified, language: inferLanguage(file) };
     },

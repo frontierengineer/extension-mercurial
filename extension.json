@@ -5,6 +5,6 @@
   "realms": {
     "surface": { "applications": ["mercurial"], "sidebars": [], "daemon": false },
     "host": null,
-    "worker": { "runtime": false, "workspaceProviders": ["mercurial"], "components": false }
+    "worker": { "runtime": false, "workspaces": ["mercurial"], "components": false }
   }
 }
