@@ -22,7 +22,7 @@ import { createVcsClient, type VcsClient } from '../vcs';
 export interface SlotTarget {
   reservationId: string;
   machine: string;
-  slotDir: string;
+  slotDirectory: string;
   label: string;   // the owning thing's display name (chat/space title)
 }
 
@@ -42,7 +42,7 @@ export function VcsPanel({ context }: { context: SurfaceViewContext }) {
   const refresh = useCallback(async () => {
     try {
       const [rs, wss] = await Promise.all([
-        workspacesService.reservations(),
+        workspacesService.reservations({}),
         workspacesService.list(),
       ]);
       setReservations(rs);
@@ -52,13 +52,13 @@ export function VcsPanel({ context }: { context: SurfaceViewContext }) {
 
   // Slots come and go as things reserve and free — refresh on mount and on
   // every fleet/slot event the host pushes. The watch keeps a hidden app's
-  // list current too (its bus stays alive); onActivate re-pulls once for
+  // list current too (its bus stays alive); onFocus re-pulls once for
   // freshness when the app is shown again.
   useEffect(() => {
     void refresh();
     const stopWatch = machines.watch(() => void refresh());
-    const stopActivate = context.lifecycle.onActivate(() => void refresh());
-    return () => { stopWatch.unsubscribe(); stopActivate.unsubscribe(); };
+    const stopFocus = context.lifecycle.onFocus(() => void refresh());
+    return () => { stopWatch.unsubscribe(); stopFocus.unsubscribe(); };
   }, [refresh, machines, context]);
 
   const groups = useMemo(() => {
@@ -70,14 +70,14 @@ export function VcsPanel({ context }: { context: SurfaceViewContext }) {
       // Only Mercurial workspaces — this app has nothing to say about a git
       // checkout (the git app handles those).
       if (!w || !relevant.has(w.provider)) continue;
-      const dir = r.descriptor.slotDir || r.descriptor.canonicalDir;
+      const dir = r.slot.slotDirectory || r.slot.canonicalDirectory;
       if (!dir) continue;
       let g = byWorkspace.get(r.workspaceId);
       if (!g) {
         g = { workspaceId: r.workspaceId, title: w.title, slots: [] };
         byWorkspace.set(r.workspaceId, g);
       }
-      g.slots.push({ reservationId: r.id, machine: r.machine, slotDir: dir, label: r.description });
+      g.slots.push({ reservationId: r.id, machine: r.machine, slotDirectory: dir, label: r.key });
     }
     return Array.from(byWorkspace.values()).sort((a, b) => a.title.localeCompare(b.title));
   }, [reservations, workspaces]);
@@ -100,10 +100,10 @@ export function VcsPanel({ context }: { context: SurfaceViewContext }) {
   // SlotTarget object — every refresh() rebuilds slotByKey with fresh objects,
   // so memoising on `selectedSlot` would recreate the client (and remount
   // RepoView's state — clearing the open diff AND any half-typed commit
-  // message) on each background poll. machine+slotDir is what the client
+  // message) on each background poll. machine+slotDirectory is what the client
   // actually binds to; while those hold steady the client stays identical.
   const selMachine = selectedSlot?.machine ?? '';
-  const selDir = selectedSlot?.slotDir ?? '';
+  const selDir = selectedSlot?.slotDirectory ?? '';
   const client = useMemo<VcsClient | null>(
     () => (selMachine && selDir ? createVcsClient(machines, selMachine, selDir) : null),
     [machines, selMachine, selDir],
@@ -128,7 +128,7 @@ export function VcsPanel({ context }: { context: SurfaceViewContext }) {
                 key={slot.reservationId}
                 className={`ext-vcs-selector-item ${selected === slot.reservationId ? 'active' : ''}`}
                 onClick={() => setSelected(slot.reservationId)}
-                title={slot.slotDir}
+                title={slot.slotDirectory}
               >
                 <span className="ext-vcs-selector-label">{slot.label}</span>
               </button>

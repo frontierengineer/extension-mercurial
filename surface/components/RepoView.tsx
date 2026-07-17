@@ -225,8 +225,8 @@ export function RepoView({
         ? 'Mercurial (hg) isn’t available on this machine'
         : (vcs === 'git' ? 'Not a git repository' : 'Not a Mercurial repository');
     const sub = failCode === 'no_hg'
-      ? `Install Mercurial on this machine (e.g. “apt install mercurial”) so it can read ${slot.slotDir}`
-      : slot.slotDir;
+      ? `Install Mercurial on this machine (e.g. “apt install mercurial”) so it can read ${slot.slotDirectory}`
+      : slot.slotDirectory;
     return (
       <div className="ext-vcs-repo">
         <div className="ext-vcs-empty">
@@ -255,8 +255,8 @@ export function RepoView({
       <div className="ext-vcs-repo-header">
         <span className="ext-vcs-repo-tag">{vcs}</span>
         <span className="ext-vcs-repo-branch" title="current branch">{branchLabel}</span>
-        <span className="ext-vcs-repo-dir" title={status && status.ok ? status.directory : slot.slotDir}>
-          {(status && status.ok ? status.directory : slot.slotDir)}
+        <span className="ext-vcs-repo-dir" title={status && status.ok ? status.directory : slot.slotDirectory}>
+          {(status && status.ok ? status.directory : slot.slotDirectory)}
         </span>
         {pushResult && (
           <span

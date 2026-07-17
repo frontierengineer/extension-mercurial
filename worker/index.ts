@@ -29,10 +29,14 @@ function createMercurialProvider(context: WorkerWorkspaceContext): WorkerWorkspa
   return {
     async begin(reservation) {
       const d = dir(reservation.workspace);
-      return { slotDir: d, canonicalDir: d, branch: null, commit: null, isolated: false };
+      // Display facts: the working directory's current revision, best-effort (a
+      // machine without hg, or a fresh directory, simply shows no facts).
+      const display: Array<{ label: string; value: string }> = [];
+      const ident = await context.execute({ command: 'hg', args: ['-R', d, 'identify', '-i'], cwd: null, environment: {}, timeoutMs: 30_000 });
+      if (ident.ok && ident.stdout.trim()) display.push({ label: 'revision', value: ident.stdout.trim() });
+      return { slotDirectory: d, canonicalDirectory: d, display, isolated: false };
     },
     async end(reservation) {
-      if (reservation.keepDirty) return;
       const hg = (args: string[]) => context.execute({ command: 'hg', args, cwd: dir(reservation.workspace), environment: {}, timeoutMs: null });
       const st = await hg(['status']);
       if (st.ok && st.stdout.trim()) {

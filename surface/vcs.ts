@@ -1,4 +1,4 @@
-import type { WorkerRegistry, ExecuteResult } from '../../types';
+import type { Workers, ExecuteResult } from '../../types';
 import type {
   StatusFile, LogCommit,
   StatusResult, LogResult, DiffResult, FileDiffResult, ActionResult,
@@ -6,7 +6,7 @@ import type {
 import { LOG_TEMPLATE, inferLanguage } from './constants';
 
 // The repository client the source-control view drives. Each call runs the
-// hg binary in the slot's directory via WorkerRegistry.execute and parses
+// hg binary in the slot's directory via Workers.execute and parses
 // the output. Every method is robust to non-repos / errors: it resolves to
 // { ok:false, ... } (the failures carry a stable `code` — `no_dir`,
 // `not_a_repo`) rather than throwing, so a bad call can't wedge the view.
@@ -70,7 +70,7 @@ const NOT_A_REPO: ActionResult = { ok: false, code: 'not_a_repo', error: 'Not a 
 const NO_HG: ActionResult = { ok: false, code: 'no_hg', error: 'Mercurial (hg) is not installed on this machine' };
 
 // `hg root` couldn't even LAUNCH the binary (vs. ran and reported a non-zero
-// exit). The host's WorkerRegistry.execute sets `error` (and leaves `exitCode`
+// exit). The host's Workers.execute sets `error` (and leaves `exitCode`
 // undefined) only on a transport/launch failure — a "command not found"
 // (ENOENT) is the common case when hg isn't installed on the slot's machine,
 // which the panel must NOT mislabel as "not a repository". A normal non-zero
@@ -95,7 +95,7 @@ function hgDiagnostic(res: ExecuteResult): string {
   return err;
 }
 
-export function createVcsClient(machines: WorkerRegistry, machine: string, slotDir: string): VcsClient {
+export function createVcsClient(machines: Workers, machine: string, slotDirectory: string): VcsClient {
   const run = (args: string[], cwd: string) => machines.execute(machine, { command: 'hg', args, cwd, environment: {}, timeoutMs: null });
 
   // Confirm the slot's directory is a repo (`hg root`), then hand back a
@@ -104,7 +104,7 @@ export function createVcsClient(machines: WorkerRegistry, machine: string, slotD
     { ok: true; hg: (args: string[]) => Promise<ExecuteResult>; directory: string }
     | { ok: false; error: string; code?: string }
   > => {
-    const directory = slotDir;
+    const directory = slotDirectory;
     if (!directory) return NO_DIR as { ok: false; error: string; code?: string };
     const hg = (args: string[]) => run(args, directory);
     const root = await hg(['root']);
