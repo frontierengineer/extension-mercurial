@@ -1,38 +1,14 @@
-# Mercurial
+# Mercurial (deprecated)
 
-Mercurial source control for Frontier — for teams who work on `hg`.
+This extension has been retired and its source removed.
 
-Mercurial adds Mercurial as a first-class workspace kind: point a workspace at an
-`hg` repository on one of your machines and agents run against it, with a
-source-control panel that shows each slot's changes, diffs, and log the same way
-the built-in Git panel does. Installing the extension makes **Mercurial** appear
-in the workspace provider picker; removing it takes the provider away again — the
-core itself carries no VCS knowledge.
+The Frontier platform's workspace model is built on isolated, disposable
+working copies (one git worktree per reservation). Mercurial ran in place on
+the repository's own working directory — every reservation shared one
+checkout, with no isolation between concurrent agents and no way to treat a
+slot as disposable. In-place workspaces are no longer supported, so this
+extension has no correct way to exist.
 
-<!-- screenshot: the Mercurial source-control panel showing a slot's changes, a diff, and the log -->
-
-## Features
-
-- A **Mercurial workspace provider** — create workspaces backed by an `hg` repo
-- A source-control panel: per-slot working-copy changes, file diffs, and the log
-- Runs in place and auto-commits on reservation release, so nothing is lost
-- Reuses the same diff viewer and panel UX as the built-in Git extension
-
-## How it differs from Git
-
-Mercurial **runs in place** rather than from a worktree pool. The provider's
-`begin`/`end` operate on the workspace's single directory, committing on release.
-Because slots **share the directory**, concurrency is limited: the slot cap
-defaults to **2** (user-settable, but keep it low — there is no per-slot
-isolation, unlike Git's worktrees). Everything else mirrors Git: it owns the
-working directory and VCS at reservation boundaries, and the source-control panel
-shows a slot's changes, diffs, and log keyed by reservation.
-
-`hg` must be installed on the machine the workspace lives on.
-
-## Install
-
-Install Mercurial from the **Extensions → Marketplace** tab in Frontier: find
-Mercurial, click Install, and the Mercurial workspace provider and source-control
-panel become available (Frontier verifies the download before installing). No
-configuration needed.
+Git worktree workspaces are the supported model. For Mercurial repositories,
+work from a git mirror (for example `git-cinnabar` or `hg-git`) and point a
+git workspace at it.
